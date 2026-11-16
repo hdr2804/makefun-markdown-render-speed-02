@@ -1,22 +1,39 @@
-# markdown-render-speed-02 — a faster drop-in for marked
+# makefun-markdown-render-speed-02
 
-[![competition](https://make.fun/badge/markdown-render-speed-02.svg)](https://make.fun/c/markdown-render-speed-02/)
-[![rank](https://make.fun/badge/markdown-render-speed-02/hdr2804/makefun-markdown-render-speed-02/rank.svg)](https://make.fun/c/markdown-render-speed-02/)
-[![reward](https://make.fun/badge/markdown-render-speed-02/hdr2804/makefun-markdown-render-speed-02/reward.svg)](https://make.fun/c/markdown-render-speed-02/)
+An entry for the make.fun competition
+[markdown-render-speed-02](https://make.fun/competition/markdown-render-speed-02)
+by [hdr2804](https://github.com/hdr2804).
 
-My entry for the [markdown-render-speed-02](https://make.fun/c/markdown-render-speed-02/) competition on [make.fun](https://make.fun/).
+![competition](https://make.fun/badge/markdown-render-speed-02.svg)
+![rank](https://make.fun/badge/markdown-render-speed-02/hdr2804/makefun-markdown-render-speed-02/rank.svg)
+![reward](https://make.fun/badge/markdown-render-speed-02/hdr2804/makefun-markdown-render-speed-02/reward.svg)
 
-`parse.js` is a dependency-free ES module whose `parse(markdown)` returns, for every input, exactly the HTML that marked 18.1.3's `marked.parse` returns with default options (GFM on, breaks off, pedantic off): the full CommonMark 0.31.2 block and inline grammar plus GFM tables, task lists, strikethrough and extended autolinks, reproduced behaviour for behaviour — delimiter-run emphasis resolution with the rule of three, reference links with case-folded labels, raw HTML blocks of every CommonMark type, nested lists and block quotes with lazy continuation, setext/table ambiguity, hard breaks, entities and escapes.
+## What this is
 
-`main.ts` is the harness driver: it reads every case from `/input/cases.json` (or `$MAKEFUN_INPUT_DIR`), renders each one with `parse()`, and writes the HTML strings as a JSON array to `/output/html.json` (or `$MAKEFUN_OUTPUT_DIR`).
+A from-scratch Markdown renderer that is a drop-in replacement for
+marked 18.1.3: for every input string, `parse(markdown)` in `parse.js`
+returns exactly the HTML that `marked.parse(markdown)` returns with
+marked's default options (gfm true, breaks false, pedantic false),
+including marked's departures from the CommonMark and GFM specs.
+
+`main.ts` is the program the harness runs: it reads the cases from
+`/input/cases.json`, renders each one with `parse()`, and writes the
+HTML strings, in case order, as a JSON array to `/output/html.json`.
+Outside the sandbox, `MAKEFUN_INPUT_DIR` and `MAKEFUN_OUTPUT_DIR`
+stand in for the two directories.
 
 ## How it works
 
-- A line-oriented block parser (indentation tracked in true tab columns) builds a small block tree; block quotes and list items gather their lines first — honouring group boundaries, lazy continuation and content-indent rules — and then recurse.
-- A single-pass inline scanner emits text, pre-rendered and delimiter nodes; emphasis is resolved afterwards with a forward balance scan that mirrors marked's flanking, multiple-of-three and skip-span rules, over a masked copy of the text that hides code spans, escapes and reference-link text.
-- `parse()` is pure per call: all state (link definitions, raw-text mode, autolink suppression) is created fresh for every document.
-- Speed comes from plain-text run fast paths (block level and inside the scanner), first-character dispatch in the block parser, single-pass escaping, and memoized tail probes while gathering block quotes.
+- A line-oriented block parser builds a small block tree (headings,
+  paragraphs, lists, blockquotes, tables, fences, indented code, HTML
+  blocks, reference definitions) while collecting link definitions.
+- A single-pass inline scanner then tokenizes emphasis, strong, code
+  spans, links, images, autolinks and raw HTML, using a masked copy of
+  the source for delimiter-run decisions, the way the reference
+  behaves on flanking and multiple-of-3 edge cases.
+- At load time the module runs `parse()` over a small fixed synthetic
+  document so the hot paths are compiled before the real cases arrive;
+  `parse()` itself is a pure function of its argument.
 
-## Verification
-
-Against the practice set the entry is byte-for-byte identical to marked on all 720 cases (680 spec examples and 40 generated documents), and it stayed identical on five further generator instances drawn from other seeds (3,600 more cases) and on roughly 150,000 adversarial fuzz documents mixing nested emphasis, reference links, entities, tables, task lists, raw HTML, nested lists/quotes, CRLF, tabs and missing final newlines.
+No dependencies: only Node's built-in modules and the sources in this
+repository.
